@@ -43,6 +43,8 @@ parser.add_argument('--lambda_recon_loss', type=float, default=0.2,
                     help='lambda of reconstruction loss (default: 0.2)')
 parser.add_argument('--no_cuda', action='store_true',
                     help='do not use cuda')
+parser.add_argument('--fusing_method', type=str, default='lowrank_BP',
+                    help='fusing_method')
 args = parser.parse_args()
 
 
@@ -82,7 +84,6 @@ if __name__ == '__main__':
             transforms.Resize(136),
             transforms.RandomCrop(128),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(10),
             transforms.ToTensor()
         ]))
 
@@ -91,7 +92,7 @@ if __name__ == '__main__':
         shuffle=True,
         num_workers=args.num_threads)
 
-    G = Generator()
+    G = Generator(fusing_method=args.fusing_method)
     D = Discriminator()
     G, D = G.to(device), D.to(device)
 
@@ -102,7 +103,7 @@ if __name__ == '__main__':
     g_lr_scheduler = lr_scheduler.StepLR(g_optimizer, 100, args.lr_decay)
     d_lr_scheduler = lr_scheduler.StepLR(d_optimizer, 100, args.lr_decay)
 
-    vis = visdom.Visdom()
+    vis = visdom.Visdom(port=6006)
 
     for epoch in range(args.num_epochs):
         d_lr_scheduler.step()
