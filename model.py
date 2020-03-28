@@ -33,10 +33,85 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         return x + self.encoder(x)
 
+class ResidualBlockBRL(nn.Module):
+    def __init__(self, fusing_method = '', conditioning = True):
+        super(ResidualBlockBRL, self).__init__()
+        self.fusing_method = fusing_method
+        self.conditioning = conditioning
+        self.encoder = nn.Sequential(
+                nn.Conv2d(512, 512, 3, padding=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 512, 3, padding=1, bias=False),
+                nn.BatchNorm2d(512)
+            )
+        if self.conditioning:
+            if self.fusing_method == 'lowrank_BP':
+                self.U = nn.Sequential(nn.Conv2d(512, 256, kernel_size=1,bias=False),
+                     nn.ReLU(inplace=True)
+                                   )
+                self.V = nn.Sequential(nn.Conv2d(128, 256, kernel_size=1,bias=False),
+                                   nn.ReLU(inplace=True)
+                                   )
+                self.P = nn.Sequential(nn.Conv2d(256, 512, kernel_size=1),
+                                   nn.ReLU(inplace=True)
+                                   )
+            elif self.fusing_method == 'FiLM':
+                self.s_w = nn.Sequential(nn.Conv2d(128, 512 , kernel_size=1),
+                                   nn.Sigmoid()
+                                   )
+                self.a_w = nn.Conv2d(128, 512 , kernel_size=1)
+            else:
+                self.concat_conv = nn.Sequential(
+                nn.Conv2d(512 + 128, 512, 3, padding=1, bias=False),
+                nn.ReLU(inplace=True))
+
+    def forward(self, x, t):
+        if self.conditioning:
+            if self.fusing_method == 'lowrank_BP':
+                internal_emb1 = self.U(x)
+                internal_emb2 = self.V(t)
+                fusion = self.P(internal_emb1 * internal_emb2)
+            elif self.fusing_method == 'FiLM':
+                fusion = x * self.s_w(t) + self.a_w(t)
+            else:
+                fusion = self.concat_conv(torch.cat((x, t), dim=1))
+
+        else:
+            fusion = x
+
+
+        return F.relu(x + self.encoder(fusion))
+
+
+class Residual_blocksBRL(nn.Module):
+    def __init__(self, fusing_method = ''):
+        super(Residual_blocksBRL, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
+            nn.BatchNorm2d(512)
+        )
+        self.fusing_method = fusing_method
+        self.residual_block1 = ResidualBlockBRL(fusing_method = self.fusing_method)
+        self.residual_block2 = ResidualBlockBRL(fusing_method = self.fusing_method)
+        self.residual_block3 = ResidualBlockBRL(fusing_method = self.fusing_method)
+        self.residual_block4 = ResidualBlockBRL(fusing_method = self.fusing_method)
+
+    def forward(self, x, t):
+        x = self.conv(x)
+        x = self.residual_block1(x, t)
+        x = self.residual_block2(x, t)
+        x = self.residual_block3(x, t)
+        x = self.residual_block4(x, t)
+        return x
+
+
 
 class Generator(nn.Module):
-    def __init__(self):
+    def __init__(self, fusing_method=''):
         super(Generator, self).__init__()
+
+        self.fusing_method = fusing_method
 
         # encoder
         self.encoder = nn.Sequential(
@@ -55,7 +130,7 @@ class Generator(nn.Module):
 
         # residual blocks
         self.residual_blocks = nn.Sequential(
-            nn.Conv2d(512 + 128, 512, 3, padding=1, bias=False),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             ResidualBlock(512),
@@ -63,6 +138,8 @@ class Generator(nn.Module):
             ResidualBlock(512),
             ResidualBlock(512)
         )
+
+        self.residual_blocksbrl = Residual_blocksBRL(fusing_method=self.fusing_method)
 
         # decoder
         self.decoder = nn.Sequential(
@@ -133,7 +210,11 @@ class Generator(nn.Module):
 
         # residual blocks
         cond = cond.unsqueeze(-1).unsqueeze(-1)
-        merge = self.residual_blocks(torch.cat((e, cond.repeat(1, 1, e.size(2), e.size(3))), 1))
+        
+        img_feat = e
+        txt_feat = cond.repeat(1, 1, e.size(2), e.size(3))
+        fusion = self.residual_blocksbrl(img_feat, txt_feat)
+        merge = self.residual_blocks(fusion)
 
         # decoder
         d = self.decoder(e + merge)
