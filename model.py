@@ -169,8 +169,8 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True)
         )
 
-        self.txt_encoder_f = nn.GRUCell(300, 512)
-        self.txt_encoder_b = nn.GRUCell(300, 512)
+        self.txt_encoder_f = nn.GRUCell(768, 512)
+        self.txt_encoder_b = nn.GRUCell(768, 512)
 
         self.apply(init_weights)
 
@@ -265,8 +265,8 @@ class Discriminator(nn.Module):
         )
 
         # text feature
-        self.txt_encoder_f = nn.GRUCell(300, 512)
-        self.txt_encoder_b = nn.GRUCell(300, 512)
+        self.txt_encoder_f = nn.GRUCell(768, 512)
+        self.txt_encoder_b = nn.GRUCell(768, 512)
 
         self.gen_filter = nn.ModuleList([
             nn.Linear(512, 256 + 1),
