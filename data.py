@@ -125,17 +125,19 @@ class ReadFromVec(data.Dataset):
 
     def _load_dataset(self, img_root, caption_root, classes_filename):
         output = []
+        img_cls = [0]*200
+        for img_file_cls in os.listdir(img_root):
+          img_cls[int(img_file_cls[:3])] = img_file_cls
         with open(os.path.join(caption_root, classes_filename)) as f:
             lines = f.readlines()
             for line in lines:
                 cls = line.replace('\n', '')
                 filenames = os.listdir(os.path.join(caption_root + '_vec', cls))
                 for filename in filenames:
-                    datum = torch.load(os.path.join(caption_root + '_vec', cls, filename))
+                    img_cls=img_cls[int(cls[:3])]
                     output.append({
-                        'img': os.path.join(bytes(img_root, 'utf-8'), datum['img']),
-                        'word_vec': datum['word_vec'],
-                        'len_desc': datum['len_desc']
+                        'img': os.path.join(img_root, img_cls, filename[:-3]+"jpg"),
+                        'path': os.path.join(caption_root + '_vec', cls, filename)
                     })
         return output
 
@@ -145,6 +147,7 @@ class ReadFromVec(data.Dataset):
     def __getitem__(self, index):
         datum = self.data[index]
         img = img_load_and_transform(datum['img'], self.img_transform)
+        datum = torch.load(datum['path'])
         word_vec = datum['word_vec']
         len_desc = datum['len_desc']
         # randomly select one sentence
