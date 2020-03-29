@@ -125,8 +125,12 @@ class ReadFromVec(data.Dataset):
 
     def _load_dataset(self, img_root, caption_root, classes_filename):
         output = []
-        img_cls = [0]*200
+        img_cls = [0]*201
         for img_file_cls in os.listdir(img_root):
+          if(len(img_file_cls)<4):
+            continue
+          if(img_file_cls[:3]==".ip"):
+            continue
           img_cls[int(img_file_cls[:3])] = img_file_cls
         with open(os.path.join(caption_root, classes_filename)) as f:
             lines = f.readlines()
@@ -134,9 +138,9 @@ class ReadFromVec(data.Dataset):
                 cls = line.replace('\n', '')
                 filenames = os.listdir(os.path.join(caption_root + '_vec', cls))
                 for filename in filenames:
-                    img_cls=img_cls[int(cls[:3])]
+                    img_clsname=img_cls[int(cls[:3])]
                     output.append({
-                        'img': os.path.join(img_root, img_cls, filename[:-3]+"jpg"),
+                        'img': os.path.join(img_root, img_clsname, filename[:-3]+"jpg"),
                         'path': os.path.join(caption_root + '_vec', cls, filename)
                     })
         return output
