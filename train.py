@@ -78,10 +78,9 @@ if __name__ == '__main__':
         os.makedirs(os.path.dirname(args.save_filename_G))
     else:
         G.load_state_dict(torch.load(args.save_filename_G))
+        D.load_state_dict(torch.load(args.save_filename_D))
     if not os.path.exists(os.path.dirname(args.save_filename_D)):
         os.makedirs(os.path.dirname(args.save_filename_D))
-    else:
-        D.load_state_dict(torch.load(args.save_filename_D))
 
     print('Loading a dataset...')
     train_data = ReadFromVec(args.img_root,
