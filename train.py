@@ -71,10 +71,17 @@ if __name__ == '__main__':
     if (caption_root + '_vec') not in os.listdir(args.caption_root.replace(caption_root, '')):
         raise RuntimeError('Caption data was not prepared. Please run preprocess_caption.py.')
 
+    G = Generator(fusing_method=args.fusing_method)
+    D = Discriminator()
+    
     if not os.path.exists(os.path.dirname(args.save_filename_G)):
         os.makedirs(os.path.dirname(args.save_filename_G))
+    else:
+        G.load_state_dict(torch.load(args.save_filename_G))
     if not os.path.exists(os.path.dirname(args.save_filename_D)):
         os.makedirs(os.path.dirname(args.save_filename_D))
+    else:
+        D.load_state_dict(torch.load(args.save_filename_D))
 
     print('Loading a dataset...')
     train_data = ReadFromVec(args.img_root,
@@ -92,8 +99,7 @@ if __name__ == '__main__':
         shuffle=True,
         num_workers=args.num_threads)
 
-    G = Generator(fusing_method=args.fusing_method)
-    D = Discriminator()
+    
     G, D = G.to(device), D.to(device)
 
     g_optimizer = torch.optim.Adam(G.parameters(),
@@ -106,8 +112,6 @@ if __name__ == '__main__':
     vis = visdom.Visdom(port=6006)
 
     for epoch in range(args.num_epochs):
-        d_lr_scheduler.step()
-        g_lr_scheduler.step()
 
         avg_D_real_loss = 0
         avg_D_real_c_loss = 0
@@ -185,6 +189,9 @@ if __name__ == '__main__':
             G_loss.backward()
 
             g_optimizer.step()
+
+            d_lr_scheduler.step()
+            g_lr_scheduler.step()
 
             if i % args.log_interval == 0:
                 print('Epoch [%03d/%03d], Iter [%03d/%03d], D_real: %.4f, D_real_c: %.4f, D_fake: %.4f, G_fake: %.4f, G_fake_c: %.4f, G_recon: %.4f, KLD: %.4f'
